@@ -38,6 +38,7 @@ public final class SimulationTests {
             new Case("long simulation keeps resources finite and bounded", SimulationTests::longRun)
         ));
         tests.addAll(WorldGenerationTests.cases());
+        tests.addAll(GenesisTests.cases());
         return tests;
     }
     public static void main(String[] args) throws Exception {

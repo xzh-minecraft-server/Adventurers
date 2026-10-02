@@ -38,6 +38,16 @@ public final class WorldModel {
     public int populationLimit() { return populationLimit; }
     public Planet planet() { return planet; }
     public Optional<TerrainAtlas> terrain() { return Optional.ofNullable(terrain); }
+    public int geologicalEpoch() {
+        return terrain == null ? 0 : (int)Math.min(terrain.epochs(), WorldTime.day(tick) / GeologicalHistory.DAYS_PER_EPOCH);
+    }
+    public boolean geographyReady() { return terrain == null || geologicalEpoch() == terrain.epochs(); }
+    public Optional<TerrainAtlas> observedTerrain() { return terrain().map(atlas -> atlas.frame(geologicalEpoch())); }
+    public boolean geologicalChangeAt(long tick) {
+        return terrain != null && terrain.epochs() > 0 && tick > 0
+                && tick <= (long)terrain.epochs() * GeologicalHistory.DAYS_PER_EPOCH * WorldTime.TICKS_PER_DAY
+                && tick % (GeologicalHistory.DAYS_PER_EPOCH * WorldTime.TICKS_PER_DAY) == 0;
+    }
     public void attachTerrain(TerrainAtlas terrain) {
         if (terrain.seed() != seed || planet.columns() != TerrainSettings.COLUMNS || planet.rows() != TerrainSettings.ROWS)
             throw new IllegalArgumentException("Terrain and simulation geography disagree");
@@ -45,7 +55,7 @@ public final class WorldModel {
             throw new IllegalArgumentException("Cannot change the geography of an existing world");
         this.terrain = terrain;
     }
-    public boolean canSettle(Region region) { return terrain == null || terrain.settlement(region.view().id()).isPresent(); }
+    public boolean canSettle(Region region) { return geographyReady() && (terrain == null || terrain.settlement(region.view().id()).isPresent()); }
     public Laws laws() { return laws; }
     public Phase phase() { return phase; }
     public Fortune worldFortune() { return worldFortune; }
@@ -90,6 +100,7 @@ public final class WorldModel {
     }
     public int population() { return cities.values().stream().mapToInt(City::population).sum(); }
     public City foundCity(Region region) {
+        if (!geographyReady()) throw new IllegalStateException("地质演化尚未完成，不能提前选址");
         if (cities.size() >= cityLimit || population() + 16 > populationLimit) throw new IllegalStateException("World population/city budget reached");
         var v = region.view();
         var site = terrain == null ? null : terrain.settlement(v.id()).orElseThrow(() -> new IllegalStateException("No dry, buildable settlement site in this region"));

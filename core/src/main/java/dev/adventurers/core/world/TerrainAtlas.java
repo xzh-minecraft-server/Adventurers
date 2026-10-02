@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class TerrainAtlas {
     public static final int SEA_LEVEL = 63, MIN_Y = -64, HEIGHT = 384;
-    private static final int COLS = 96, ROWS = 48;
+    static final int COLS = 96, ROWS = 48;
     public enum Biome {
         OCEAN, FROZEN_OCEAN, BEACH, DESERT, PLAINS, FOREST, JUNGLE,
         TAIGA, SNOWY_PLAINS, STONY_PEAKS, RIVER, FROZEN_RIVER, SWAMP
@@ -31,9 +31,20 @@ public final class TerrainAtlas {
     private final Map<Integer, Optional<Site>> sites = new ConcurrentHashMap<>();
     private final double southHeight, northHeight;
     private volatile Site spawnSite;
+    private final List<TerrainAtlas> history;
 
     public TerrainAtlas(long seed, TerrainSettings settings) {
         this.seed = seed; this.settings = Objects.requireNonNull(settings);
+        if (settings.version() == 2) {
+            history = GeologicalHistory.generate(seed, settings);
+            var last = history.getLast();
+            copy(last.height, height); copy(last.moisture, moisture); copy(last.ore, ore); copy(last.mana, mana);
+            copy(last.filled, filled); copy(last.drainage, drainage);
+            System.arraycopy(last.receiver, 0, receiver, 0, receiver.length);
+            southHeight = last.southHeight; northHeight = last.northHeight;
+            return;
+        }
+        history = List.of();
         var plates = Planet.genesis(seed, COLS, ROWS);
         for (var region : plates.regions()) {
             var r = region.view(); int i = r.id();
@@ -61,6 +72,25 @@ public final class TerrainAtlas {
         for (int col = 0; col < COLS; col++) { south += height[col]; north += height[(ROWS - 1) * COLS + col]; }
         southHeight = south / COLS; northHeight = north / COLS;
     }
+    TerrainAtlas(long seed, TerrainSettings settings, double[] heights, double[] humidity, double[] minerals, double[] magic) {
+        this.seed = seed; this.settings = settings; history = List.of();
+        copy(heights, height); copy(humidity, moisture); copy(minerals, ore); copy(magic, mana);
+        routeWater();
+        double south = 0, north = 0;
+        for (int col = 0; col < COLS; col++) { south += height[col]; north += height[(ROWS - 1) * COLS + col]; }
+        southHeight = south / COLS; northHeight = north / COLS;
+    }
+    private static void copy(double[] source, double[] target) { System.arraycopy(source, 0, target, 0, target.length); }
+    double gridHeight(int cell) { return height[cell]; }
+    double gridMoisture(int cell) { return moisture[cell]; }
+    double gridDrainage(int cell) { return drainage[cell]; }
+    int gridReceiver(int cell) { return receiver[cell]; }
+    public int epochs() { return history.isEmpty() ? 0 : history.size() - 1; }
+    public TerrainAtlas frame(int epoch) {
+        if (epoch < 0 || epoch > epochs()) throw new IllegalArgumentException("Geological epoch outside history");
+        return history.isEmpty() ? this : history.get(epoch);
+    }
+    public Planet initialPlanet() { return frame(0).simulationPlanet(); }
     public long seed() { return seed; }
     public TerrainSettings settings() { return settings; }
     private int index(int x, int z) {

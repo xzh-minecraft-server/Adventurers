@@ -1,62 +1,58 @@
-# 0.2.1 验证记录
+# 0.3.0 验证记录
 
-验证日期：2026-10-02。平台：Linux x86_64，Temurin JDK 25.0.4.1+1，辅助 JDK 8u504-b01，Gradle 9.7.1，Minecraft 26.3，Forge 66.0.9。
+验证日期：2026-10-02 UTC（北京时间 10 月 3 日）。平台：Linux x86_64，Temurin JDK 25.0.4.1+1，辅助 JDK 8u504-b01，Gradle 9.7.1，Minecraft 26.3，Forge 66.0.9。
 
-| 检查 | 最终结果 |
+| 检查 | 结果 |
 |---|---|
-| `scripts/test-core.sh`（不依赖 Minecraft） | 25 项通过 |
-| `:core:check` / 自定义 `simulationTest` | 25 通过、0 失败、0 跳过 |
+| `scripts/test-core.sh` | 32 通过、0 失败、0 跳过 |
+| `:core:check` / `simulationTest` | 32 通过、0 失败、0 跳过 |
 | `:forge:build` | 成功 |
-| `:forge:runGameTestServer` | 普通测试世界中 8 项通过 |
-| `-PplanetTest :forge:runGameTestServer` | 真实星球预设中 8 项通过 |
-| JSON 资源解析、JAR 内容/版本检查、`git diff --check` | 通过 |
+| `:forge:runGameTestServer` | 普通测试世界中 10 项通过 |
+| `-PplanetTest :forge:runGameTestServer`，`-XX:ActiveProcessorCount=2` | 实际新星球预设中 10 项通过 |
 
-云环境沿用 0.1.0 已验证的 `scripts/setup-cloud.sh` 工具链；本次使用 `python3 scripts/cloud-build.py <任务> --no-daemon` 构建。没有代替用户接受普通服务器的 Minecraft EULA。
+沿用已验证的云环境工具链，通过 `python3 scripts/cloud-build.py <任务> --no-daemon` 执行。没有代用户接受普通服务器 Minecraft EULA。
 
 ## 核心检查
 
-报告：`core/build/test-results/simulation/TEST-simulation.xml`。独立断言套件使用 `validation` 源集，`check` 和 `test` 强制执行并输出 XML。默认 JUnit `test` 显示 `NO-SOURCE` 不能当作测试通过的证据，实际证据为 25 项断言及退出码。
+报告：`core/build/test-results/simulation/TEST-simulation.xml`。独立套件使用 `validation` 源集；JUnit 的 `NO-SOURCE` 不是验证证据。
 
-原有 17 项覆盖调度预算、自然文明涌现、资源事务、法术编译、任务权限与时限、存档一致性和长期模拟；新增 8 项覆盖：
+原有 25 项覆盖六阶段调度、确定性模拟、文明涌现、资源与任务事务、符文编译、身份与存档、旧地形的并发采样/跨界/选址/尺寸等。新增 7 项验证：
 
-- 东西和两极跨界、多圈归一化、非法坐标拒绝。
-- 相同种子复现、不同种子差异、陆海/河网与气候多样性。
-- 经界及极点两侧地形和洞穴一致性。
-- 多线程反序采样不改变生成结果。
-- 干燥、可建文明落点及区域坐标一致性。
-- 三种星球大小、陆地出生搜索与不支持设置的拒绝。
-- 种子 42 / 77 / 2026 的文明生成、存档重载后继续 24 日的完整字节一致。
-- 真实已发布格式 1 样本迁移：身份、科技/魔法、城邦坐标保留，原文件备份不变。
+- 16 阶段地质历史逐次可复现，大陆岸线、高程和河网确实变化；区块地形等于最后阶段。
+- 第 12 日地貌改变时生物量与基因保留，次日生物量响应；未完成地质阶段不能选址。
+- 第 23 日存档恢复后，以最小调度预算继续至第 41 日，与不间断模拟的完整存档字节一致。
+- 种子 42 / 77 / 2026 自然涌现文明；投放前后及多线程反序探索不改变最终地形；继续 24 日的存档一致。
+- 小/中/大尺寸在早期、中期、末期的经界和极点采样连续，出生搜索从陆地开始。
+- 预生成足迹去重、有界、中心优先，跨经界/极点归一化。
+- 真实发布版 0.2.1 创建的格式 2 样本，读取后保留算法 1、原地形采样、城邦坐标与身份，重新编码与原样本逐字节相等。
 
-旧存档样本来源、内容及校验值见 `core/src/validation/resources/README.md`，不是使用当前编码器伪造的旧版本头。
+旧格式 1 / 2 样本来源、生成代码及 SHA-256 见 `core/src/validation/resources/README.md`，没有使用新编码器伪造版本头。
 
 ## Forge 服务器检查
 
-报告分别位于 `forge/run-gametest/gametest-results.xml` 和 `forge/run-planet-gametest/gametest-results.xml`。两份报告都包含下面 8 项测试，无失败或跳过。`runtime` 断言实际生成器与模拟地理类型，防止星球数据包未加载仍被误判为通过。
+报告：`forge/run-gametest/gametest-results.xml`、`forge/run-planet-gametest/gametest-results.xml`。两种服务器均执行全部 10 项，无跳过。
 
 | 测试 | 检查内容 |
 |---|---|
-| `adventurers:runtime` | 生命周期、注册、预设类型、实际 `/advent selftest` |
-| `adventurers:save_replay` | 文明存档恢复后继续六日，完整字节一致 |
-| `adventurers:player_magic` | 真实玩家治疗、魔力扣除和重复施法冷却 |
-| `adventurers:quests_and_projection` | 真实背包交付、库存增加、重复拒绝；区块实体就绪后检查各热区城邦人数上限、不重复和冷区清理 |
-| `adventurers:planet_presets` | 三份真实 JSON 预设解码、尺寸、生成器编解码、种子差异 |
-| `adventurers:planet_terrain` | 相邻真实 ProtoChunk 的地表、水面、基岩、高度图与重建一致；星球服务器上用原版出生搜索找到干燥落点 |
-| `adventurers:planet_boundary` | 真正的储物船携带乘客和 7 个铁锭，东西/极点传送保留骑乘、货物、速度与朝向 |
-| `adventurers:planet_atlas` | 真实地图像素、锁定、单 ID 复用、灭绝标记更新、服务重建后索引保持 |
+| `adventurers:runtime` | 模组注册/生命周期、真正激活的世界类型、实际 selftest 指令 |
+| `adventurers:save_replay` | 服务器中的存档继续完整字节一致 |
+| `adventurers:player_magic` | 真实玩家治疗、魔力扣除、重复施法冷却 |
+| `adventurers:quests_and_projection` | 背包与资源交付、重复拒绝、热区各城邦人口上限、实体就绪、不重复、冷区清理、草丛/头部碰撞 |
+| `adventurers:planet_presets` | 三种新预设使用算法 2，生成器编解码保留尺寸/种子/地形 |
+| `adventurers:planet_terrain` | 新算法真实 ProtoChunk 高度图/水面/基岩/并排重建；真实星球的陆地出生搜索 |
+| `adventurers:planet_boundary` | 载具、乘客、货物、方向在经界和极点传送后保留 |
+| `adventurers:planet_atlas` | 原地图锁定、单 ID 复用、城邦灭绝标记、索引恢复 |
+| `adventurers:planet_genesis` | 地质推进后实际地图大陆/水域像素变化、金条进度更新、同一地图 ID、未完成投放门槛 |
+| `adventurers:planet_pregeneration` | 真实 FULL 区块请求、并发上限、去重、完成及中断释放票据、重新建队后复用区块；票据不持久化/不运行实体模拟 |
 
-初次远端验证中，`v0.2.0` 的星球居民测试失败，发布被阻止。模拟客户端不发送移动数据，`snapTo` 不会建立玩家的区块加载票据；仅等待实体出现不足以修复。测试现显式激活城邦区块，再等待实体区域就绪，按每个热区城邦计算上限。实际居民生成同样检查实体区域已加载并运行，避免在尚不可见的区域重复创建外壳；落点使用碰撞体检查，允许草丛、拒绝头顶树叶。两种世界均包含草丛/头部碰撞的回归检查。未删除或跳过失败测试。修复版采用新版本 0.2.1，不覆盖已有标签。
+GameTest 无实时限速，测试初始化会同步完成外部地形的必要加载，再进行按 tick 的断言，避免后台生成慢于测试时钟。正式预生成服务使用异步请求，只在 future 已完成时读取结果；没有在服务器 tick 上同步等待。居民断言仍等待实体区块和两圈邻区就绪；没有放宽上限或跳过旧回归。
 
-`src/gametest/packs/planet` 仅供测试，覆盖 GameTest 固定使用的世界预设；已验证发行 JAR 不含该覆盖，也不含旧档样本。所有测试世界保持 Git 忽略。
+`src/gametest/packs/planet` 覆盖测试预设，只有 `-PplanetTest` 加载；不进入模组 JAR。`runtime` 检查实际生成器和模拟地理类型，避免星球测试包未启用仍被算作通过。
 
-## 产物与边界
+## 发布与验证边界
 
-本地模组：`forge/build/libs/adventurers-0.2.1.jar`，257376 字节，SHA-256：
+发布产物为 `adventurers-0.3.0.jar`；准确 SHA-256 随 Release 的 `SHA256SUMS` 交付。标签流水线在全量构建、核心验证、两种服务器测试通过后才发布附件，不覆盖旧标签或旧版产物。
 
-```text
-85027676d97afcb7485ef83b18b5215af5f77c6b5f0f1be8e49a72e2d0f6a363
-```
+交互客户端画面、长期多人负载、其他操作系统均未执行；未测量大面积新区域预生成的 TPS/内存上限。地图像素测试不等同于渲染客户端验收，区块请求预算不等于严格毫秒预算。运行时的文明周边计划会随实际城邦增加；测试验证核心生成、服务器适配与队列组件，没有代替长时间真人游玩。
 
-GitHub Actions 对分支、PR、版本标签重新构建，发布任务仅在标签构建及两种服务器测试成功后运行。Release 附带 JAR 与 `SHA256SUMS`，远端运行记录可在 Actions/PR 查看。
-
-未执行交互客户端画面检查、长期多人压力和其他操作系统验证；未测量本版的大规模区块生成或多人 TPS。核心并发采样通过不等同于上述性能保证。地图数据/传送测试也不等同于已完成视觉无缝环绕。具体缺口见 [IMPLEMENTATION.md](IMPLEMENTATION.md)。
+本版不宣称实现投放后方块重塑、连续创世动画、无缝跨位面或宇宙生成。详见 [WORLDGEN.md](WORLDGEN.md) 与 [IMPLEMENTATION.md](IMPLEMENTATION.md)。

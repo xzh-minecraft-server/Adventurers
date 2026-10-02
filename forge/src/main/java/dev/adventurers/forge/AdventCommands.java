@@ -35,7 +35,8 @@ public final class AdventCommands {
         root.then(literal("civilizations").executes(c->run(c,AdventCommands::civilizations)));
         root.then(literal("me").executes(c->run(c,AdventCommands::profile)));
         root.then(literal("city").executes(c->run(c,AdventCommands::city)));
-        root.then(literal("atlas").executes(c->run(c,cx->{runtime(cx).atlasMap().give(player(cx));return "手持演化图观看：蓝色为水域，绿色为植被，灰色为山地，金色为城邦，红色为废墟。地貌固定，生态和文明随模拟更新。";})));
+        root.then(literal("atlas").executes(c->run(c,cx->{runtime(cx).atlasMap().give(player(cx));return "手持演化图观看：蓝色水域、绿色植被、灰色山地、金色城邦、红色废墟；下方金条显示地质阶段。/advent genesis 查看投放进度。";})));
+        root.then(literal("genesis").executes(c->run(c,cx->runtime(cx).genesisStatus())));
         root.then(literal("geography").executes(c->run(c,AdventCommands::geography)));
         root.then(literal("join").then(argument("civilization",LongArgumentType.longArg(1))
                 .then(argument("origin",StringArgumentType.word()).suggests((c,b)->SharedSuggestionProvider.suggest(List.of("born","summoned","transmigrated"),b))

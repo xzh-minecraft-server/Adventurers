@@ -4,7 +4,7 @@ license="GPL-3.0-only"
 
 [[mods]]
 modId="adventurers"
-version="0.2.1"
+version="0.3.0"
 displayName="冒险人 · Adventurers"
 authors="xzh-minecraft-server"
 description='''文明演化与符文实验模组。统一主循环驱动气候、生命、城邦与玩家的冒险。'''

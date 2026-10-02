@@ -8,7 +8,25 @@ import java.util.*;
 
 public final class EnvironmentSystems {
     private EnvironmentSystems() {}
-    public static List<LoopSystem<?, ?, ?>> create() { return List.of(new Climate(), new Ecology(), new Evolution(), new Geology(), new WorldWill()); }
+    public static List<LoopSystem<?, ?, ?>> create() { return List.of(new GenesisGeology(), new Climate(), new Ecology(), new Evolution(), new Geology(), new WorldWill()); }
+
+    private static final class GenesisGeology extends DomainSystem<WorldModel> {
+        GenesisGeology() { super("genesis_geology", GeologicalHistory.DAYS_PER_EPOCH * WorldTime.TICKS_PER_DAY,
+                "plates,crust,drainage", "previous_epoch,wind,runoff", "drift,uplift,erosion", "terrain,rain_shadow,minerals"); }
+        public List<WorldModel> perceive(LoopContext c) { return c.world().geologicalChangeAt(c.tick()) ? List.of(c.world()) : List.of(); }
+        protected double demand(LoopContext c, WorldModel world) { return 1; }
+        protected void act(LoopContext c, WorldModel world, double urgency) {
+            var geography = world.observedTerrain().orElseThrow().simulationPlanet();
+            for (var region : world.planet().regions()) {
+                var old = region.view(); var next = geography.region(old.id()).view();
+                // Terrain and water change first. Organisms retain their traits/biomass until the following day.
+                region.update(new Region.View(old.id(),old.latitude(),old.longitude(),next.elevation(),next.temperature(),
+                        next.moisture(),old.pressure(),next.water(),old.biomass(),next.mana(),next.ore(),old.genome(),old.generation()));
+            }
+            c.emit("world.geology", Integer.toString(world.geologicalEpoch()),
+                    "板块移动与河流冲刷：地质阶段 " + world.geologicalEpoch() + "/" + GeologicalHistory.EPOCHS, .65);
+        }
+    }
 
     private static final class Climate extends DomainSystem<Region.View> {
         private List<Region.View> snapshot;
@@ -27,7 +45,11 @@ public final class EnvironmentSystems {
             double temp = r.temperature() + (target - r.temperature()) * .25 + (neighborTemperature - r.temperature()) * .12;
             double incoming = neighbors.stream().mapToDouble(Region.View::moisture).average().orElse(r.moisture());
             double evaporation = Math.min(r.water(), Math.max(0, temp + 10) * .0015);
-            double vapor = Numbers.unit(r.moisture() + (incoming - r.moisture()) * .15 + evaporation);
+            double terrainVapor = c.world().terrain().filter(t -> t.settings().version() == 2)
+                    .map(t -> c.world().observedTerrain().orElseThrow().column(
+                            r.longitude() / (2*Math.PI) * t.settings().circumference(),
+                            r.latitude() / Math.PI * t.settings().poleDistance()).moisture()).orElse(r.moisture());
+            double vapor = Numbers.unit(r.moisture() + (incoming - r.moisture()) * .15 + evaporation + (terrainVapor-r.moisture())*.2);
             double rain = Math.max(0, vapor - (.5 + Math.max(0, temp) * .005)) * .65;
             double water = r.elevation() < 0 ? 1 : Numbers.unit(r.water() - evaporation + rain + .005);
             planet.region(r.id()).update(new Region.View(r.id(), r.latitude(), r.longitude(), r.elevation(), temp,
@@ -37,7 +59,8 @@ public final class EnvironmentSystems {
     private static final class Ecology extends DomainSystem<Region.View> {
         Ecology() { super("ecology", WorldTime.TICKS_PER_DAY, "plants,elements", "water,temperature,mana", "survival,regrowth", "biomass,mana_recovery"); }
         public List<Region.View> perceive(LoopContext c) {
-            return c.world().laws().allows(Laws.Domain.LIFE) ? c.world().planet().regions().stream().map(Region::view).toList() : List.of();
+            return c.world().laws().allows(Laws.Domain.LIFE) && !c.world().geologicalChangeAt(c.tick())
+                    ? c.world().planet().regions().stream().map(Region::view).toList() : List.of();
         }
         protected double demand(LoopContext c, Region.View r) { return 1; }
         protected void act(LoopContext c, Region.View r, double urgency) {
@@ -52,7 +75,8 @@ public final class EnvironmentSystems {
     private static final class Evolution extends DomainSystem<Region.View> {
         Evolution() { super("evolution", WorldTime.TICKS_PER_DAY * 6, "gene_pool", "environmental_pressure", "adaptation,reproduction", "traits,civilization_emergence"); }
         public List<Region.View> perceive(LoopContext c) {
-            return c.world().laws().allows(Laws.Domain.LIFE) ? c.world().planet().regions().stream().map(Region::view).toList() : List.of();
+            return c.world().laws().allows(Laws.Domain.LIFE) && !c.world().geologicalChangeAt(c.tick())
+                    ? c.world().planet().regions().stream().map(Region::view).toList() : List.of();
         }
         protected double demand(LoopContext c, Region.View r) { return r.biomass(); }
         protected void act(LoopContext c, Region.View r, double urgency) {

@@ -34,13 +34,14 @@ public final class Simulation {
         engine.advanceFully(Math.addExact(world.tick(), Math.multiplyExact((long) days, WorldTime.TICKS_PER_DAY)));
     }
     public boolean insertionReady(City.Era minimum) {
-        return world.cities().stream().anyMatch(c -> c.population() > 0 && c.era().ordinal() >= minimum.ordinal());
+        return world.geographyReady() && world.cities().stream().anyMatch(c -> c.population() > 0 && c.era().ordinal() >= minimum.ordinal());
     }
     public void generate(City.Era minimum, int maxDays) {
         for (int day = 0; day < maxDays && !insertionReady(minimum); day++) advanceDays(1);
         if (!insertionReady(minimum)) throw new IllegalStateException("投放条件未达到；世界仍可继续演化");
     }
     public PlayerProfile join(UUID id, long cityId, PlayerProfile.Origin origin) {
+        if (!world.geographyReady()) throw new IllegalStateException("地质演化尚未完成");
         if (world.player(id).isPresent()) throw new IllegalStateException("已拥有身份，不能重复领取出身");
         var city = world.city(cityId).filter(c -> c.population() > 0).orElseThrow(() -> new IllegalArgumentException("城邦不存在或已灭绝"));
         var player = new PlayerProfile(id, city.id(), origin, 0);

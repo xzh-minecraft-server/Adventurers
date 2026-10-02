@@ -5,7 +5,7 @@
       "generator": {
         "type": "adventurers:planet",
         "region_size": 96,
-        "terrain_version": 1,
+        "terrain_version": 2,
         "biomes": [
           "minecraft:ocean",
           "minecraft:frozen_ocean",

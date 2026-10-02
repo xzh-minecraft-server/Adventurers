@@ -26,7 +26,7 @@ public final class PlanetAtlasMap {
     private int lastCities=-1;
     public PlanetAtlasMap(ServerLevel level,WorldModel world) { this.level=level;this.world=world; }
     public ItemStack stack() {
-        var atlas=world.terrain().orElseThrow(()->new IllegalStateException("当前世界使用原版地形；请新建冒险人星球世界以查看星球图"));
+        var atlas=world.observedTerrain().orElseThrow(()->new IllegalStateException("当前世界使用原版地形；请新建冒险人星球世界以查看星球图"));
         var index=level.getDataStorage().computeIfAbsent(Index.TYPE);
         MapId id=new MapId(index.mapId);
         if(index.mapId<0||level.getMapData(id)==null) {
@@ -43,7 +43,7 @@ public final class PlanetAtlasMap {
         var index=level.getDataStorage().get(Index.TYPE);
         if(index!=null&&index.mapId>=0) {
             var data=level.getMapData(new MapId(index.mapId));
-            if(data!=null)render(data,world.terrain().orElseThrow());
+            if(data!=null)render(data,world.observedTerrain().orElseThrow());
         }
     }
     public void give(ServerPlayer player) {
@@ -88,6 +88,9 @@ public final class PlanetAtlasMap {
             for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++)if(px+dx>=0&&px+dx<128&&py+dz>=32&&py+dz<96)
                 map.updateColor(px+dx,py+dz,(city.population()>0?MapColor.GOLD:MapColor.COLOR_RED).getPackedId(MapColor.Brightness.HIGH));
         }
+        int epochs=world.terrain().orElseThrow().epochs();
+        if(epochs>0)for(int x=8;x<120;x++)for(int y=104;y<108;y++)
+            map.updateColor(x,y,(x-8<112*world.geologicalEpoch()/epochs?MapColor.GOLD:MapColor.STONE).getPackedId(MapColor.Brightness.NORMAL));
         lastDay=day;lastCities=world.cities().size();
     }
 }

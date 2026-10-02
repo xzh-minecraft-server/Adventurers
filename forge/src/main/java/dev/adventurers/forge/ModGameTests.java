@@ -27,6 +27,8 @@ public final class ModGameTests {
         FUNCTIONS.register("planet_terrain",()->dev.adventurers.forge.worldgen.WorldGenerationGameTests::terrain);
         FUNCTIONS.register("planet_boundary",()->dev.adventurers.forge.worldgen.WorldGenerationGameTests::boundary);
         FUNCTIONS.register("planet_atlas",()->dev.adventurers.forge.worldgen.WorldGenerationGameTests::atlas);
+        FUNCTIONS.register("planet_genesis",()->dev.adventurers.forge.worldgen.WorldGenerationGameTests::genesisMap);
+        FUNCTIONS.register("planet_pregeneration",()->dev.adventurers.forge.worldgen.WorldGenerationGameTests::pregeneration);
     }
     private ModGameTests() {}
     private static void runtime(GameTestHelper helper) {
@@ -56,6 +58,7 @@ public final class ModGameTests {
         var runtime=ServerRuntime.get(helper.getLevel().getServer());
         var mock=helper.makeMockServerPlayerInLevel();
         var world=runtime.world();
+        if(!world.geographyReady())runtime.simulation().advanceDays(GeologicalHistory.EPOCHS*GeologicalHistory.DAYS_PER_EPOCH);
         if(world.cities().isEmpty())world.foundCity(world.planet().regions().stream().filter(r->r.view().elevation()>0&&world.canSettle(r)).findFirst().orElseThrow());
         var city=world.cities().iterator().next();
         var profile=runtime.simulation().join(mock.getUUID(),city.id(),PlayerProfile.Origin.SUMMONED);
@@ -73,6 +76,7 @@ public final class ModGameTests {
     }
     private static void questsAndProjection(GameTestHelper helper) {
         var server=helper.getLevel().getServer();var runtime=ServerRuntime.get(server);var world=runtime.world();
+        if(!world.geographyReady())runtime.simulation().advanceDays(GeologicalHistory.EPOCHS*GeologicalHistory.DAYS_PER_EPOCH);
         if(world.cities().isEmpty())world.foundCity(world.planet().regions().stream().filter(r->r.view().elevation()>0&&world.canSettle(r)).findFirst().orElseThrow());
         var city=world.cities().iterator().next();
         var mock=helper.makeMockServerPlayerInLevel();
@@ -100,6 +104,9 @@ public final class ModGameTests {
             if(level.setChunkForced(chunk.x(),chunk.z(),true))forced.add(chunk);
             level.getChunk(chunk.x(),chunk.z());
         }
+        // ENTITY_TICKING requires a radius-two FULL neighbourhood (ChunkMap.prepareEntityTickingChunk).
+        // Load it before starting the tick-based assertion budget; GameTest ticks faster than wall time.
+        for(int dx=-3;dx<=3;dx++)for(int dz=-3;dz<=3;dz++)level.getChunk((city.x()>>4)+dx,(city.z()>>4)+dz);
         mock.snapTo(city.x()+.5,level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,city.x(),city.z()),city.z()+.5);
         mock.getInventory().setItem(0,new ItemStack(Items.OAK_LOG,8));
         var quest=new Quest(world.allocateId(),city.id(),Resource.WOOD,8,world.tick()+24000);world.addQuest(quest);
